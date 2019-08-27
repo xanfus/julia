@@ -63,6 +63,9 @@ gc_time_ns() = ccall(:jl_gc_total_hrtime, UInt64, ())
 # total number of bytes allocated so far
 gc_bytes() = ccall(:jl_gc_total_bytes, Int64, ())
 
+# total live bytes
+gc_live_bytes() = (GC.gc(); Int(ccall(:jl_gc_live_bytes, Int64, ())))
+
 # print elapsed time, return expression value
 const _mem_units = ["byte", "KiB", "MiB", "GiB", "TiB", "PiB"]
 const _cnt_units = ["", " k", " M", " G", " T", " P"]
