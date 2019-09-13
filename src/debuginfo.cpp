@@ -492,7 +492,6 @@ static int lookup_pointer(DIContext *context, jl_frame_t **frames,
         }
         return 1;
     }
-    jl_mutex_lock_maybe_nogc(&codegen_lock);
     DILineInfoSpecifier infoSpec(DILineInfoSpecifier::FileLineInfoKind::AbsoluteFilePath,
                                  DILineInfoSpecifier::FunctionNameKind::ShortName);
 
@@ -501,7 +500,6 @@ static int lookup_pointer(DIContext *context, jl_frame_t **frames,
     int fromC = (*frames)[0].fromC;
     int n_frames = inlineInfo.getNumberOfFrames();
     if (n_frames == 0) {
-        jl_mutex_unlock_maybe_nogc(&codegen_lock);
         // no line number info available in the context, return without the context
         return lookup_pointer(NULL, frames, pointer, demangle, noInline);
     }
@@ -553,7 +551,6 @@ static int lookup_pointer(DIContext *context, jl_frame_t **frames,
         else
             jl_copy_str(&frame->file_name, file_name.c_str());
     }
-    jl_mutex_unlock_maybe_nogc(&codegen_lock);
     return n_frames;
 }
 
