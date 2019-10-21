@@ -124,6 +124,18 @@ cd(@__DIR__) do
         end
     end
 
+    function print_testworker_errored(name, wrkr)
+        lock(print_lock)
+        try
+            printstyled(name, color=:red)
+            printstyled(lpad("($wrkr)", name_align - textwidth(name) + 1, " "), " |",
+                " "^elapsed_align, " failed at $(now())\n", color=:red)
+        finally
+            unlock(print_lock)
+        end
+    end
+
+
     all_tests = [tests; node1_tests]
 
     local stdin_monitor
@@ -162,10 +174,11 @@ cd(@__DIR__) do
                             resp = remotecall_fetch(runtests, wrkr, test, test_path(test); seed=seed)
                         catch e
                             isa(e, InterruptException) && return
-                            resp = [e]
+                            resp = Any[e]
                         end
                         push!(results, (test, resp))
                         if resp[1] isa Exception
+                            print_testworker_errored(test, wrkr)
                             if exit_on_error
                                 skipped = length(tests)
                                 empty!(tests)
@@ -204,7 +217,7 @@ cd(@__DIR__) do
                 resp = eval(Expr(:call, () -> runtests(t, test_path(t), isolate, seed=seed))) # runtests is defined by the include above
                 print_testworker_stats(t, 1, resp)
             catch e
-                resp = [e]
+                resp = Any[e]
             end
             push!(results, (t, resp))
         end
@@ -272,7 +285,8 @@ cd(@__DIR__) do
             Test.pop_testset()
         elseif isa(res[2][1], RemoteException) && isa(res[2][1].captured.ex, Test.TestSetException)
             println("Worker $(res[2][1].pid) failed running test $(res[1]):")
-            Base.showerror(stdout,res[2][1].captured)
+            Base.showerror(stdout, res[2][1].captured)
+            println()
             fake = Test.DefaultTestSet(res[1])
             for i in 1:res[2][1].captured.ex.pass
                 Test.record(fake, Test.Pass(:test, nothing, nothing, nothing))
@@ -292,12 +306,13 @@ cd(@__DIR__) do
             # the test runner itself had some problem, so we may have hit a segfault,
             # deserialization errors or something similar.  Record this testset as Errored.
             fake = Test.DefaultTestSet(res[1])
-            Test.record(fake, Test.Error(:test_error, res[1], res[2][1], [], LineNumberNode(1)))
+            Test.record(fake, Test.Error(:test_error, res[1], nothing, Any[(res[2][1], [])], LineNumberNode(1)))
             Test.push_testset(fake)
             Test.record(o_ts, fake)
             Test.pop_testset()
         else
-            error(string("Unknown result type : ", typeof(res)))
+            @error string("Unknown result type : ", typeof(res))
+            skipped += 1
         end
     end
     for test in all_tests
@@ -309,8 +324,8 @@ cd(@__DIR__) do
         Test.pop_testset()
     end
     println()
-    Test.print_test_results(o_ts,1)
-    if !o_ts.anynonpass
+    Test.print_test_results(o_ts, 1)
+    if !o_ts.anynonpass && skipped == 0
         println("    \033[32;1mSUCCESS\033[0m")
     else
         println("    \033[31;1mFAILURE\033[0m\n")
