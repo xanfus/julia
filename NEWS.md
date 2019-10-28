@@ -47,6 +47,7 @@ Standard library changes
 
 * Verbose `display` of `Char` (`text/plain` output) now shows the codepoint value in standard-conforming `"U+XXXX"` format ([#33291]).
 
+* `methods` now accepts passing a module (or a list thereof) to filter methods defined in it ([#33403]).
 
 #### Libdl
 
